@@ -9,6 +9,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;600;700&display=swap">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource-variable/geist@latest/index.css">
+  <link rel="preload" as="image" href="assets/character-front.webp" type="image/webp" fetchpriority="high">
   <style>
     :root{
       color-scheme:light dark;
@@ -229,7 +230,10 @@
     <section class="character-stage" aria-label="Interactive sponsorship spots">
       <div class="platform" aria-hidden="true"></div>
       <div class="character" id="character" role="group" aria-label="Front view sponsorship spots">
-        <img id="bodyImage" src="assets/character-front.png" alt="Full-body front view of a man in a yellow banana outfit" draggable="false">
+        <picture>
+          <source srcset="assets/character-front.webp" type="image/webp">
+          <img id="bodyImage" src="assets/character-front.png" alt="Full-body front view of a man in a yellow banana outfit" draggable="false" fetchpriority="high">
+        </picture>
         <div class="hotspots" id="hotspots"></div>
       </div>
       <p class="hint">tap a spot</p>
@@ -301,7 +305,8 @@
 
     function money(n){return '$'+Number(n).toLocaleString('en-US',{maximumFractionDigits:2})}
     function activeSpot(){return spots.find(function(s){return s.id===activeSpotId})||null}
-    function minBid(s){return Number(s.price)+10}
+    function minBid(s){var hasLeader=s.leader&&typeof s.leader==='object';return Number(s.price)+(hasLeader?10:0)}
+    function minBidLabel(s,minimum){var hasLeader=s.leader&&typeof s.leader==='object';return 'Minimum '+money(minimum)+(hasLeader?' (at least $10 more)':'')}
     function fmt(ms){var t=Math.max(0,Math.floor(ms/1000)),h=Math.floor(t/3600),m=Math.floor((t%3600)/60),sec=t%60;return String(h).padStart(2,'0')+':'+String(m).padStart(2,'0')+':'+String(sec).padStart(2,'0')}
     function websiteHref(value){var website=String(value||'').trim();if(!website)return '';if(/^https?:\/\//i.test(website))return website;if(/^[a-z][a-z0-9+.-]*:\/\//i.test(website))return '';return 'https://'+website}
     function safeLogoUrl(value){var logo=String(value||'');return /^data:image\/(png|jpe?g|webp|gif|svg\+xml);base64,/i.test(logo)?logo:''}
@@ -356,7 +361,7 @@
       updateLeader(s);updateCountdown();
       var bidBtn=document.getElementById('bidBtn'),quick=document.getElementById('quickBidBtn'),quickInput=document.getElementById('quickBidAmount');
       bidBtn.disabled=!biddingAvailable;bidBtn.textContent=biddingAvailable?'Bid on this spot':'Bidding opens soon';
-      quick.disabled=!biddingAvailable;quickInput.min=minimum;quickInput.value=minimum;document.getElementById('quickBidMinimum').textContent='Minimum '+money(minimum)+' (at least $10 more)'
+      quick.disabled=!biddingAvailable;quickInput.min=minimum;quickInput.value=minimum;document.getElementById('quickBidMinimum').textContent=minBidLabel(s,minimum)
     }
     function showSpot(){document.getElementById('spotView').classList.remove('hidden');document.getElementById('brandView').classList.add('hidden');updateSpot()}
     function recordSpotView(id){
@@ -370,7 +375,7 @@
     function hideBidError(){var error=document.getElementById('bidError');error.textContent='';error.classList.add('hidden')}
     function showBidError(message){var error=document.getElementById('bidError');error.textContent=message||'Could not start checkout. Please try again.';error.classList.remove('hidden')}
     function resetBrandForm(){document.getElementById('brandForm').reset();document.getElementById('logoBox').classList.remove('ready');document.getElementById('logoPreview').removeAttribute('src');logoDataUrl='';hideBidError()}
-    function syncBrandMinimum(force,prefill){var s=activeSpot();if(!s)return;var minimum=minBid(s),input=document.getElementById('bidAmount'),requested=Number(prefill);input.min=minimum;document.getElementById('bidMinimum').textContent='Minimum '+money(minimum)+' (at least $10 more)';if(Number.isFinite(requested)&&requested>=minimum)input.value=requested;else if(force||!input.value||Number(input.value)<minimum)input.value=minimum}
+    function syncBrandMinimum(force,prefill){var s=activeSpot();if(!s)return;var minimum=minBid(s),input=document.getElementById('bidAmount'),requested=Number(prefill);input.min=minimum;document.getElementById('bidMinimum').textContent=minBidLabel(s,minimum);if(Number.isFinite(requested)&&requested>=minimum)input.value=requested;else if(force||!input.value||Number(input.value)<minimum)input.value=minimum}
     function syncLogoPreviewSize(){var s=activeSpot();if(!s)return;var width=s.size==='belly'?68:(s.size==='thigh'?44:52),height=s.size==='belly'?48:(s.size==='thigh'?32:38),box=document.getElementById('logoBox');box.style.setProperty('--preview-w',width+'px');box.style.setProperty('--preview-h',height+'px')}
     function openBrandSheet(prefill){var s=activeSpot();if(!s||!biddingAvailable)return;resetBrandForm();syncBrandMinimum(true,prefill);syncLogoPreviewSize();document.getElementById('spotView').classList.add('hidden');document.getElementById('brandView').classList.remove('hidden');document.getElementById('brandSpotName').textContent='Bidding on '+s.name;setTimeout(function(){document.getElementById('logoBox').focus()},20)}
 
