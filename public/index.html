@@ -228,7 +228,7 @@
 </head>
 <body>
   <main class="app" id="app">
-    <div class="top-timer" id="topTimer" role="timer" aria-label="Time left in this round"><span class="top-timer-dot" aria-hidden="true"></span><span id="topTimerText">--:--:--</span></div>
+    <div class="top-timer" id="topTimer" aria-label="Visitors online right now"><span class="top-timer-dot" aria-hidden="true"></span><span id="topTimerText">…</span></div>
     <div class="arena-bg" aria-hidden="true"><i class="beam b1"></i><i class="beam b2"></i><i class="beam b3"></i><i class="wireframe"></i><i class="laser"></i></div>
     <section class="story" aria-labelledby="main-title">
       <button class="intro-video" id="introVideoBtn" type="button" aria-label="Play dance video">
@@ -354,9 +354,6 @@
     document.addEventListener('keydown',function(e){if(e.key==='Escape'){var open=document.querySelector('.modal.open');if(open)closeModal(open.id)}});
 
     function updateCountdown(){
-      var r0=spots[0],end0=r0&&r0.roundEndsAt?new Date(r0.roundEndsAt).getTime():NaN;
-      var topEl=document.getElementById('topTimerText');
-      if(topEl)topEl.textContent=Number.isFinite(end0)?fmt(end0-Date.now()):'--:--:--';
       var s=activeSpot();if(!s)return;
       var end=s.roundEndsAt?new Date(s.roundEndsAt).getTime():NaN;
       document.getElementById('roundChip').textContent=Number.isFinite(end)?'Round ends in '+fmt(end-Date.now()):'Round timing unavailable'
@@ -513,6 +510,17 @@
     document.getElementById('sponsorsRulesBtn').addEventListener('click',function(){closeModal('sponsorsModal');openModal('rulesModal',this)});
     renderHotspots();renderSponsors();fetchSpots();
     setInterval(updateCountdown,1000);
+    var visitorId='';
+    try{visitorId=localStorage.getItem('smb_vid')||''}catch(e){visitorId=''}
+    if(!visitorId){visitorId=(window.crypto&&crypto.randomUUID?crypto.randomUUID():'v'+Date.now().toString(36)+Math.random().toString(36).slice(2));try{localStorage.setItem('smb_vid',visitorId)}catch(e){}}
+    function pingPresence(){
+      var el=document.getElementById('topTimerText');if(!el)return;
+      fetch('api/presence',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({vid:visitorId})})
+        .then(function(r){if(!r.ok)throw new Error('bad');return r.json()})
+        .then(function(d){var n=Number(d&&d.online);el.textContent=(Number.isFinite(n)&&n>=0?n:0)+' online'})
+        .catch(function(){});
+    }
+    pingPresence();setInterval(pingPresence,30000);
     setInterval(fetchSpots,30000);
   </script>
 </body>
