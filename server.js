@@ -73,12 +73,9 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS spots (
     id             TEXT PRIMARY KEY,
     name           TEXT NOT NULL,
-    starting_price REAL NOT NULL, views INTEGER NOT NULL DEFAULT 0
+    starting_price REAL NOT NULL,
+    views          INTEGER NOT NULL DEFAULT 0
   );
-  
-  
-    
-  
   CREATE TABLE IF NOT EXISTS rounds (
     id        INTEGER PRIMARY KEY AUTOINCREMENT,
     ends_at   TEXT NOT NULL,
@@ -100,6 +97,12 @@ db.exec(`
   );
   CREATE INDEX IF NOT EXISTS idx_bids_spot_round ON bids (spot_id, round_id, status);
 `);
+
+// Lightweight migration: per-spot view counter for the popup header
+// (for databases created before the views column existed).
+try {
+  db.prepare('ALTER TABLE spots ADD COLUMN views INTEGER NOT NULL DEFAULT 0').run();
+} catch (e) { /* column already exists */ }
 
 {
   const seed = db.prepare('INSERT OR IGNORE INTO spots (id, name, starting_price) VALUES (?, ?, ?)');
@@ -374,18 +377,22 @@ app.post('/api/spots/:id/view', (req, res) => {
 
 /**
  * Validate a bid's fields. Returns a human-readable error string, or null if OK.
- * Amount rules: positive number, max 2 decimals, >= current price + MIN_INCREMENT.
+ * Amount rules: positive number, max 2 decimals.
+ * First bid on a spot: at least the starting price (as shown).
+ * Outbids: at least current price + MIN_INCREMENT.
  */
-function validateBidInput({ spotId, amount, brandName, website, logoDataUrl }, currentPrice) {
+function validateBidInput({ spotId, amount, brandName, website, logoDataUrl }, currentPrice, hasLeader) {
   const spot = SPOTS_SEED.find((s) => s.id === spotId);
   if (!spot) return 'Unknown spot. Please pick a valid placement.';
   if (typeof amount !== 'number' || !Number.isFinite(amount)) return 'Bid amount must be a number.';
   if (amount <= 0) return 'Bid amount must be greater than $0.';
   if (amount > MAX_AMOUNT) return `Bid amount looks too large (max $${MAX_AMOUNT.toLocaleString()}).`;
   if (Math.abs(amount * 100 - Math.round(amount * 100)) > 1e-6) return 'Bid amount can have at most 2 decimals.';
-  const minimum = currentPrice + MIN_INCREMENT;
+  const minimum = hasLeader ? currentPrice + MIN_INCREMENT : currentPrice;
   if (amount < minimum) {
-    return `Bid must be at least $${minimum} (current $${currentPrice} + $${MIN_INCREMENT} minimum increment).`;
+    return hasLeader
+      ? `Bid must be at least $${minimum} (current $${currentPrice} + $${MIN_INCREMENT} minimum increment).`
+      : `Bid must be at least $${minimum} (the starting price).`;
   }
   if (typeof brandName !== 'string' || !brandName.trim()) return 'Brand name is required.';
   if (brandName.trim().length > 80) return 'Brand name is too long (max 80 characters).';
@@ -409,7 +416,7 @@ app.post('/api/bid', async (req, res) => {
     const leader = currentLeader(spotId, round.id);
     const currentPrice = leader ? leader.amount : spot.starting_price;
 
-    const err = validateBidInput({ spotId, amount, brandName, website, logoDataUrl }, currentPrice);
+    const err = validateBidInput({ spotId, amount, brandName, website, logoDataUrl }, currentPrice, !!leader);
     if (err) return res.status(400).json({ error: err });
 
     if (!WHOP_API_KEY || !WHOP_ACCOUNT_ID) {
@@ -425,9 +432,12 @@ app.post('/api/bid', async (req, res) => {
     const insertTx = db.transaction(() => {
       const liveLeader = currentLeader(spotId, round.id);
       const livePrice = liveLeader ? liveLeader.amount : spot.starting_price;
-      if (amount < livePrice + MIN_INCREMENT) {
+      const liveMinimum = liveLeader ? livePrice + MIN_INCREMENT : livePrice;
+      if (amount < liveMinimum) {
         throw Object.assign(new Error(
-          `Someone just bid — the minimum is now $${livePrice + MIN_INCREMENT}.`
+          liveLeader
+            ? `Someone just bid — the minimum is now $${livePrice + MIN_INCREMENT}.`
+            : `Someone just bid — the minimum is now $${livePrice}.`
         ), { statusCode: 400 });
       }
       db.prepare(
