@@ -210,6 +210,18 @@
       .hotspot[data-size="belly"]{--spot-w:68px;--spot-h:38px}
       .hotspot[data-size="thigh"]{--spot-w:44px;--spot-h:26px}
     }
+    .crop-viewport{position:relative;width:100%;height:300px;overflow:hidden;border-radius:14px;background:#050b13;border:1px solid var(--line);touch-action:none;cursor:grab;user-select:none;-webkit-user-select:none}
+    .crop-viewport:active{cursor:grabbing}
+    .crop-img-wrap{position:absolute;will-change:left,top,width,height}
+    .crop-img-wrap img{display:block;width:100%;height:100%;pointer-events:none;user-select:none;-webkit-user-drag:none}
+    .crop-frame{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:84%;border:2px solid var(--blue-hi);border-radius:8px;box-shadow:0 0 0 9999px rgba(3,7,12,.74);pointer-events:none}
+    .crop-frame::after{content:attr(data-label);position:absolute;left:50%;top:-24px;transform:translateX(-50%);font-size:10px;font-weight:700;letter-spacing:.08em;color:#7fb6ff;white-space:nowrap}
+    .crop-hint{margin:12px 2px 4px;font-size:11px;color:var(--muted);text-align:center}
+    .crop-zoom-row{display:flex;align-items:center;gap:10px;margin:6px 2px 2px;color:#7fb6ff;font-size:18px;font-weight:700}
+    .crop-zoom-row input[type=range]{flex:1;accent-color:var(--blue);height:32px}
+    .crop-actions{display:flex;gap:10px;margin-top:14px}
+    .crop-actions .ghost-btn{flex:1;min-height:52px;border-radius:12px;border:1px solid var(--line);background:transparent;color:var(--ink);font-weight:700;cursor:pointer}
+    .crop-actions .primary{flex:2}
   </style>
 </head>
 <body>
@@ -287,6 +299,8 @@
   <div class="modal" id="rulesModal"><section class="panel" role="dialog" aria-modal="true" aria-labelledby="rulesTitle"><header class="panel-head"><div class="panel-title-wrap"><h2 class="dialog-title" id="rulesTitle">How it works</h2><span class="accepting">Accepting sponsors</span></div><button class="icon-btn close" type="button" data-close="rulesModal" aria-label="Close"><svg viewBox="0 0 24 24" fill="none"><path d="m6 6 12 12M18 6 6 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button></header><div class="panel-body"><ol class="rules-list"><li><div><strong>Daily rounds</strong>Every spot runs in a 24-hour round ending at 00:00 UTC.</div></li><li><div><strong>Sponsor through checkout</strong>Choose a spot, add your brand details, then continue to its secure checkout.</div></li><li><div><strong>Outbid anytime</strong>Enter at least $10 more than the current amount to take the lead.</div></li><li><div><strong>100% refund</strong>If another brand outbids you, your payment is refunded in full.</div></li><li><div><strong>The winner gets worn</strong>The winning brand's logo is worn in my TikTok videos.</div></li></ol></div></section></div>
 
   <div class="modal" id="sponsorsModal"><section class="panel" role="dialog" aria-modal="true" aria-labelledby="sponsorsTitle"><header class="panel-head"><div class="panel-title-wrap"><h2 class="dialog-title sponsors-title" id="sponsorsTitle">Meet the sponsors</h2><div class="subline">All 5 placements in the current round</div></div><button class="icon-btn close" type="button" data-close="sponsorsModal" aria-label="Close"><svg viewBox="0 0 24 24" fill="none"><path d="m6 6 12 12M18 6 6 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button></header><div class="panel-body"><div class="sponsor-rows" id="sponsorRows"></div><section class="activity-block" aria-labelledby="activityTitle"><h3 class="activity-title" id="activityTitle">Activity</h3><p class="activity-empty" id="activityCopy">No bids yet — be the first.</p></section><button class="sponsors-rules-link" id="sponsorsRulesBtn" type="button">See how it works</button></div></section></div>
+
+  <div class="modal" id="cropModal"><section class="panel crop-panel" role="dialog" aria-modal="true" aria-labelledby="cropTitle"><header class="panel-head"><div class="panel-title-wrap"><h2 class="dialog-title" id="cropTitle">Fit your logo</h2><div class="subline" id="cropSpotName">Belly spot</div></div><button class="icon-btn close" type="button" data-close="cropModal" aria-label="Cancel cropping"><svg viewBox="0 0 24 24" fill="none"><path d="m6 6 12 12M18 6 6 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button></header><div class="panel-body"><div class="crop-viewport" id="cropViewport"><div class="crop-img-wrap" id="cropImgWrap"><img id="cropImage" alt="Logo being fitted" draggable="false"></div><div class="crop-frame" id="cropFrame" data-label=""></div></div><p class="crop-hint">Drag to position &middot; slider to zoom &middot; frame shows the exact spot shape</p><div class="crop-zoom-row"><span aria-hidden="true">&#8722;</span><input type="range" id="cropZoom" min="1" max="4" step="0.01" value="1" aria-label="Zoom logo"><span aria-hidden="true">+</span></div><div class="crop-actions"><button class="ghost-btn" id="cropRetake" type="button">Retake</button><button class="primary" id="cropConfirm" type="button">Confirm logo</button></div></div></section></div>
   <script>
     var spotLayout={
       'left-chest':{x:40,y:31,size:'chest',name:'Left chest',price:70},
@@ -384,7 +398,65 @@
     document.getElementById('quickBidBtn').addEventListener('click',function(){var s=activeSpot();if(!s)return;var requested=Number(document.getElementById('quickBidAmount').value),minimum=minBid(s);if(!Number.isFinite(requested)||requested<minimum){document.getElementById('quickBidAmount').value=minimum;return}openBrandSheet(requested)});
     document.getElementById('backToSpot').addEventListener('click',showSpot);
     document.getElementById('logoBox').addEventListener('keydown',function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();document.getElementById('logoUpload').click()}});
-    document.getElementById('logoUpload').addEventListener('change',function(){var file=this.files&&this.files[0];if(!file)return;var reader=new FileReader();reader.addEventListener('load',function(){logoDataUrl=typeof reader.result==='string'?reader.result:'';document.getElementById('logoPreview').src=logoDataUrl;document.getElementById('logoBox').classList.add('ready')});reader.addEventListener('error',function(){logoDataUrl='';document.getElementById('logoBox').classList.remove('ready');showBidError('That logo could not be read. Please choose another file.')});reader.readAsDataURL(file)});
+    document.getElementById('logoUpload').addEventListener('change',function(){var file=this.files&&this.files[0];if(!file)return;var reader=new FileReader();reader.addEventListener('load',function(){var url=typeof reader.result==='string'?reader.result:'';if(url)openCropEditor(url)});reader.addEventListener('error',function(){showBidError('That logo could not be read. Please choose another file.')});reader.readAsDataURL(file)});
+
+    var cropIW=0,cropIH=0,cropScale=1,cropMinScale=1,cropX=0,cropY=0,cropDrag=null;
+    function spotMarkerDims(s){return s.size==='belly'?{w:68,h:38}:(s.size==='thigh'?{w:44,h:26}:{w:52,h:30})}
+    function openCropEditor(dataUrl){
+      var s=activeSpot();if(!s)return;
+      var d=spotMarkerDims(s),frame=document.getElementById('cropFrame');
+      frame.style.aspectRatio=(d.w/d.h);
+      frame.setAttribute('data-label',s.name.toUpperCase()+' SPOT SHAPE');
+      document.getElementById('cropSpotName').textContent=s.name+' spot';
+      document.getElementById('logoUpload').value='';
+      var img=document.getElementById('cropImage');
+      img.onload=function(){
+        cropIW=img.naturalWidth||800;cropIH=img.naturalHeight||600;
+        document.getElementById('cropZoom').value=1;cropDrag=null;
+        openModal('cropModal');
+        requestAnimationFrame(function(){layoutCrop(true)});
+      };
+      img.onerror=function(){showBidError('That logo could not be read. Please choose another file.')};
+      img.src=dataUrl;
+    }
+    function layoutCrop(reset){
+      var vp=document.getElementById('cropViewport'),frame=document.getElementById('cropFrame'),wrap=document.getElementById('cropImgWrap');
+      var vw=vp.clientWidth,vh=vp.clientHeight;if(!vw||!vh||!cropIW)return;
+      var fw=frame.clientWidth,fh=frame.clientHeight;if(!fw||!fh)return;
+      if(reset){cropMinScale=Math.max(fw/cropIW,fh/cropIH);cropScale=cropMinScale;cropX=0;cropY=0}
+      var dw=cropIW*cropScale,dh=cropIH*cropScale;
+      var fx=(vw-fw)/2,fy=(vh-fh)/2;
+      var minX=(fx+fw)-(vw+dw)/2,maxX=fx-(vw-dw)/2,minY=(fy+fh)-(vh+dh)/2,maxY=fy-(vh-dh)/2;
+      if(minX>maxX){cropX=0}else{cropX=Math.min(maxX,Math.max(minX,cropX))}
+      if(minY>maxY){cropY=0}else{cropY=Math.min(maxY,Math.max(minY,cropY))}
+      wrap.style.width=dw+'px';wrap.style.height=dh+'px';
+      wrap.style.left=((vw-dw)/2+cropX)+'px';wrap.style.top=((vh-dh)/2+cropY)+'px';
+    }
+    (function(){
+      var vp=document.getElementById('cropViewport');
+      vp.addEventListener('pointerdown',function(e){cropDrag={sx:e.clientX-cropX,sy:e.clientY-cropY};try{vp.setPointerCapture(e.pointerId)}catch(_){} });
+      vp.addEventListener('pointermove',function(e){if(!cropDrag)return;cropX=e.clientX-cropDrag.sx;cropY=e.clientY-cropDrag.sy;layoutCrop(false)});
+      vp.addEventListener('pointerup',function(){cropDrag=null});
+      vp.addEventListener('pointercancel',function(){cropDrag=null});
+      document.getElementById('cropZoom').addEventListener('input',function(){var v=parseFloat(this.value)||1;cropScale=cropMinScale*v;layoutCrop(false)});
+      document.getElementById('cropRetake').addEventListener('click',function(){closeModal('cropModal');setTimeout(function(){document.getElementById('logoUpload').click()},60)});
+      document.getElementById('cropConfirm').addEventListener('click',function(){
+        var s=activeSpot();if(!s||!cropIW)return;
+        var d=spotMarkerDims(s),vp2=document.getElementById('cropViewport'),frame=document.getElementById('cropFrame'),wrap=document.getElementById('cropImgWrap'),img=document.getElementById('cropImage');
+        var vpr=vp2.getBoundingClientRect(),fr=frame.getBoundingClientRect(),wr=wrap.getBoundingClientRect();
+        var sx=(fr.left-vpr.left-(wr.left-vpr.left))/cropScale,sy=(fr.top-vpr.top-(wr.top-vpr.top))/cropScale;
+        var sw=fr.width/cropScale,sh=fr.height/cropScale;
+        sx=Math.max(0,Math.min(cropIW-1,sx));sy=Math.max(0,Math.min(cropIH-1,sy));
+        sw=Math.max(1,Math.min(sw,cropIW-sx));sh=Math.max(1,Math.min(sh,cropIH-sy));
+        var cv=document.createElement('canvas');cv.width=d.w*3;cv.height=d.h*3;
+        cv.getContext('2d').drawImage(img,sx,sy,sw,sh,0,0,cv.width,cv.height);
+        logoDataUrl=cv.toDataURL('image/png');
+        document.getElementById('logoPreview').src=logoDataUrl;
+        document.getElementById('logoBox').classList.add('ready');
+        closeModal('cropModal');
+      });
+      window.addEventListener('resize',function(){var m=document.getElementById('cropModal');if(m&&m.classList.contains('open'))layoutCrop(false)});
+    })();
 
     document.getElementById('brandForm').addEventListener('submit',function(e){
       e.preventDefault();var s=activeSpot();if(!s)return;hideBidError();
