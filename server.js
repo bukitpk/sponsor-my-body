@@ -73,12 +73,12 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS spots (
     id             TEXT PRIMARY KEY,
     name           TEXT NOT NULL,
-    starting_price REAL NOT NULL
+    starting_price REAL NOT NULL, views INTEGER NOT NULL DEFAULT 0
   );
-  // Lightweight migration: per-spot view counter for the popup header.
-  try {
-    db.prepare('ALTER TABLE spots ADD COLUMN views INTEGER NOT NULL DEFAULT 0').run();
-  } catch (e) { /* column already exists */ }
+  
+  
+    
+  
   CREATE TABLE IF NOT EXISTS rounds (
     id        INTEGER PRIMARY KEY AUTOINCREMENT,
     ends_at   TEXT NOT NULL,
