@@ -222,10 +222,13 @@
     .crop-actions{display:flex;gap:10px;margin-top:14px}
     .crop-actions .ghost-btn{flex:1;min-height:52px;border-radius:12px;border:1px solid var(--line);background:transparent;color:var(--ink);font-weight:700;cursor:pointer}
     .crop-actions .primary{flex:2}
+    .top-timer{position:fixed;z-index:30;top:max(14px,env(safe-area-inset-top));right:max(14px,env(safe-area-inset-right));display:inline-flex;align-items:center;gap:7px;padding:7px 11px;border:1px solid var(--line);border-radius:999px;background:rgba(9,19,33,.85);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);color:#9db4cc;font-size:11px;font-weight:600;letter-spacing:.03em;font-family:"Orbitron",sans-serif;pointer-events:none}
+    .top-timer-dot{width:6px;height:6px;border-radius:50%;background:#3ddc84;box-shadow:0 0 8px rgba(61,220,132,.9);animation:pulse 1.8s infinite}
   </style>
 </head>
 <body>
   <main class="app" id="app">
+    <div class="top-timer" id="topTimer" role="timer" aria-label="Time left in this round"><span class="top-timer-dot" aria-hidden="true"></span><span id="topTimerText">--:--:--</span></div>
     <div class="arena-bg" aria-hidden="true"><i class="beam b1"></i><i class="beam b2"></i><i class="beam b3"></i><i class="wireframe"></i><i class="laser"></i></div>
     <section class="story" aria-labelledby="main-title">
       <button class="intro-video" id="introVideoBtn" type="button" aria-label="Play dance video">
@@ -351,6 +354,9 @@
     document.addEventListener('keydown',function(e){if(e.key==='Escape'){var open=document.querySelector('.modal.open');if(open)closeModal(open.id)}});
 
     function updateCountdown(){
+      var r0=spots[0],end0=r0&&r0.roundEndsAt?new Date(r0.roundEndsAt).getTime():NaN;
+      var topEl=document.getElementById('topTimerText');
+      if(topEl)topEl.textContent=Number.isFinite(end0)?fmt(end0-Date.now()):'--:--:--';
       var s=activeSpot();if(!s)return;
       var end=s.roundEndsAt?new Date(s.roundEndsAt).getTime():NaN;
       document.getElementById('roundChip').textContent=Number.isFinite(end)?'Round ends in '+fmt(end-Date.now()):'Round timing unavailable'
