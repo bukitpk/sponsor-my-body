@@ -376,6 +376,22 @@ app.post('/api/spots/:id/view', (req, res) => {
 });
 
 /**
+ * Live presence: the page pings every 30s with a random visitor id stored in
+ * localStorage; anyone seen in the last 75s counts as online. In-memory on
+ * purpose — "live" data is ephemeral by nature (a restart just rebuilds it).
+ */
+const presence = new Map();
+const PRESENCE_TTL_MS = 75000;
+app.post('/api/presence', (req, res) => {
+  const vid = String((req.body && req.body.vid) || '').slice(0, 64);
+  const now = Date.now();
+  if (vid) presence.set(vid, now);
+  for (const [id, ts] of presence) if (now - ts > PRESENCE_TTL_MS) presence.delete(id);
+  if (presence.size > 20000) presence.clear();
+  res.json({ online: presence.size });
+});
+
+/**
  * Validate a bid's fields. Returns a human-readable error string, or null if OK.
  * Amount rules: positive number, max 2 decimals.
  * First bid on a spot: at least the starting price (as shown).
